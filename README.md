@@ -42,12 +42,14 @@ Your edited profile is saved in the data directory, so updates do not overwrite 
 
 | Output | Hardware | Notes |
 |---|---|---|
-| **Art-Net** (default) | Ethernet cable board → fixture (or a switch) | Set the fixture to Art-Net and give it an IP on the same subnet. Use the fixture IP or broadcast as destination. |
+| **Art-Net** (default) | Ethernet cable board → fixture (or a switch) | Set the fixture to Art-Net and give it an IP on the same subnet. Use the fixture IP (or its subnet broadcast, e.g. `2.255.255.255`) as destination. |
 | **sACN** | Same | Multicast by default, or unicast to the fixture IP. |
 | **Enttec USB Pro** | Enttec DMX USB Pro / DMXking ultraDMX Pro | Usually `/dev/ttyUSB0`. Most reliable 5-pin/3-pin DMX option. |
 | **UART** | FTDI Open DMX dongle, or Tinker Board UART pin → MAX485/SN75176 (DE+RE tied high) → XLR | Timing is best-effort from user space. Prefer one of the above. |
 
 ## Install on the Tinker Board
+
+**Starting from an empty SD card?** Follow [docs/TINKERBOARD-SETUP.md](docs/TINKERBOARD-SETUP.md).
 
 ```sh
 # on the board (TinkerOS or Armbian), with network access
