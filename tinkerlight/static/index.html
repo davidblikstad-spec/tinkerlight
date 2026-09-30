@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tinkerlight</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <div class="brand">Tinkerlight</div>
+  <nav>
+    <button data-tab="live" class="active">Live</button>
+    <button data-tab="presets">Presets</button>
+    <button data-tab="schedule">Schedule</button>
+    <button data-tab="admin">Admin</button>
+  </nav>
+  <div class="status">
+    <span id="clock"></span>
+    <span id="outstate" class="pill"></span>
+  </div>
+</header>
+
+<div id="warn" class="banner hidden"></div>
+
+<main>
+<!-- ============================ LIVE ============================ -->
+<section id="tab-live" class="tab">
+  <div class="bar">
+    <button id="btn-blackout" class="big">Blackout</button>
+    <button id="btn-home">Home</button>
+    <label class="gm">Master <input type="range" id="gm" min="0" max="100"><span id="gm-val"></span></label>
+    <label>Fade <input type="number" id="go-fade" min="0" step="0.5" placeholder="preset" class="num"> s</label>
+  </div>
+  <p class="muted" id="last-action"></p>
+
+  <h2>Presets</h2>
+  <div id="preset-grid" class="grid"></div>
+
+  <h2>Programmer</h2>
+  <div class="bar">
+    <span class="muted">Fixtures:</span>
+    <div id="fixture-chips" class="chips"></div>
+  </div>
+  <div class="bar">
+    <label>Colour <input type="color" id="colorpick" value="#ffffff"></label>
+    <label>Live fade <input type="number" id="live-fade" min="0" step="0.5" value="0" class="num"> s</label>
+    <span id="cmd-buttons" class="chips"></span>
+  </div>
+  <div class="prog">
+    <div class="card">
+      <h3>Position</h3>
+      <div id="xy" class="xy"><div id="xy-dot"></div></div>
+      <p class="muted small">Drag to aim. Pan/tilt sliders below give fine control.</p>
+    </div>
+    <div id="attr-groups" class="groups"></div>
+  </div>
+
+  <div class="card">
+    <h3>Record preset</h3>
+    <div class="form">
+      <label>Name <input id="rec-name" placeholder="e.g. Stage wash"></label>
+      <label>Fade (s) <input id="rec-fade" type="number" min="0" step="0.5" value="2" class="num"></label>
+      <label>Colour tag <input id="rec-color" type="color" value="#ffd9a0"></label>
+      <label>Overwrite <select id="rec-over"><option value="">- new preset -</option></select></label>
+    </div>
+    <div class="form" id="rec-groups"></div>
+    <button id="btn-record" class="primary">Record</button>
+  </div>
+</section>
+
+<!-- ============================ PRESETS ============================ -->
+<section id="tab-presets" class="tab hidden">
+  <h2>Presets</h2>
+  <p class="muted">Tap Go to recall. Record new looks from the Live tab.</p>
+  <table class="list" id="preset-table"></table>
+</section>
+
+<!-- ============================ SCHEDULE ============================ -->
+<section id="tab-schedule" class="tab hidden">
+  <div class="cols">
+    <div>
+      <h2>Schedule</h2>
+      <p class="muted" id="sun-info"></p>
+      <table class="list" id="sched-table"></table>
+      <button id="btn-new-sched" class="primary">+ New entry</button>
+    </div>
+    <div>
+      <h2>Next 48 h</h2>
+      <ul id="upcoming" class="events"></ul>
+      <h2>Recent</h2>
+      <ul id="history" class="events"></ul>
+    </div>
+  </div>
+
+  <dialog id="sched-dlg">
+    <form method="dialog" id="sched-form">
+      <h3>Schedule entry</h3>
+      <input type="hidden" name="id">
+      <label>Name <input name="name" required></label>
+      <label class="inline"><input type="checkbox" name="enabled"> Enabled</label>
+      <fieldset>
+        <legend>When</legend>
+        <select name="when_type">
+          <option value="time">At a fixed time</option>
+          <option value="sunset">Relative to sunset</option>
+          <option value="sunrise">Relative to sunrise</option>
+        </select>
+        <input type="time" name="time" value="18:00">
+        <label class="offset">Offset <input type="number" name="offset" value="0" class="num"> min</label>
+      </fieldset>
+      <fieldset>
+        <legend>Days (none = every day)</legend>
+        <div class="days" id="days"></div>
+      </fieldset>
+      <fieldset>
+        <legend>Only between dates (optional)</legend>
+        <input type="date" name="date_from"> - <input type="date" name="date_to">
+      </fieldset>
+      <fieldset>
+        <legend>Action</legend>
+        <select name="action_type">
+          <option value="preset">Recall preset</option>
+          <option value="blackout_on">Blackout on</option>
+          <option value="blackout_off">Blackout off</option>
+          <option value="home">Home (defaults)</option>
+          <option value="command">Fixture command</option>
+        </select>
+        <select name="preset"></select>
+        <select name="command"></select>
+        <label class="fade">Fade <input type="number" name="fade" min="0" step="0.5" class="num" placeholder="preset"> s</label>
+      </fieldset>
+      <div class="bar">
+        <button value="cancel" formnovalidate>Cancel</button>
+        <button id="sched-save" value="save" class="primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+</section>
+
+<!-- ============================ ADMIN ============================ -->
+<section id="tab-admin" class="tab hidden">
+  <div class="cols">
+    <div class="card">
+      <h3>DMX output</h3>
+      <form id="out-form" class="form stack">
+        <label>Type
+          <select name="type">
+            <option value="artnet">Art-Net (Ethernet)</option>
+            <option value="sacn">sACN / E1.31 (Ethernet)</option>
+            <option value="enttec_pro">Enttec DMX USB Pro (USB)</option>
+            <option value="uart">Open DMX / UART + RS-485</option>
+            <option value="none">None (preview)</option>
+          </select></label>
+        <label data-for="artnet">Destination IP <input name="host"></label>
+        <label data-for="artnet">Net <input name="net" type="number" min="0" max="127" class="num"></label>
+        <label data-for="artnet">Sub-net <input name="subnet" type="number" min="0" max="15" class="num"></label>
+        <label data-for="artnet">Universe <input name="universe" type="number" min="0" max="15" class="num"></label>
+        <label data-for="sacn">Universe <input name="sacn_universe" type="number" min="1" max="63999" class="num"></label>
+        <label data-for="sacn">Unicast IP (blank = multicast) <input name="sacn_host"></label>
+        <label data-for="sacn">Priority <input name="priority" type="number" min="0" max="200" class="num"></label>
+        <label data-for="enttec_pro uart">Serial port <input name="serial_port"></label>
+        <label>Frame rate <input name="fps" type="number" min="1" max="44" class="num"></label>
+        <button class="primary">Apply</button>
+        <p class="muted small" id="out-msg"></p>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Location &amp; startup</h3>
+      <form id="loc-form" class="form stack">
+        <label>Latitude <input name="lat" type="number" step="0.0001"></label>
+        <label>Longitude <input name="lon" type="number" step="0.0001"></label>
+        <label>On power-up
+          <select name="startup">
+            <option value="schedule">Restore what the schedule says</option>
+            <option value="preset">Go to a preset</option>
+            <option value="blackout">Blackout</option>
+          </select></label>
+        <label>Startup preset <select name="startup_preset"></select></label>
+        <button class="primary">Save</button>
+        <p class="muted small">Scheduling uses the board's clock and time zone; make sure NTP is on (timedatectl).</p>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Patch</h3>
+    <table class="list" id="patch-table"></table>
+    <div class="bar">
+      <button id="btn-add-fixture">+ Add fixture</button>
+      <button id="btn-save-patch" class="primary">Save patch</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Fixture profile</h3>
+    <p class="muted small" id="profile-note"></p>
+    <div class="bar">
+      <select id="profile-select"></select>
+      <button id="btn-profile-save" class="primary">Save profile</button>
+      <button id="btn-profile-revert">Revert to built-in</button>
+    </div>
+    <div id="profile-table"></div>
+    <details>
+      <summary>Edit as JSON</summary>
+      <textarea id="profile-json" spellcheck="false"></textarea>
+    </details>
+  </div>
+
+  <div class="cols">
+    <div class="card">
+      <h3>Channel test</h3>
+      <p class="muted small">Overrides a raw DMX channel on top of everything else. Use it to check the profile against the fixture.</p>
+      <div class="bar">
+        <label>Channel <input id="test-ch" type="number" min="1" max="512" value="1" class="num"></label>
+        <input id="test-val" type="range" min="0" max="255" value="0"><span id="test-val-txt">0</span>
+        <button id="btn-test-release">Release ch</button>
+        <button id="btn-test-clear">Release all</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Login</h3>
+      <form id="pw-form" class="form stack">
+        <label>User <input name="user" autocomplete="username"></label>
+        <label>Current password <input name="current" type="password" autocomplete="current-password"></label>
+        <label>New password <input name="new" type="password" autocomplete="new-password"></label>
+        <button class="primary">Change</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>DMX monitor</h3>
+    <div id="dmx-monitor" class="dmx"></div>
+  </div>
+
+  <div class="card">
+    <h3>Backup</h3>
+    <div class="bar">
+      <a class="button" href="/api/backup" download>Download backup</a>
+      <label class="button">Restore from file <input type="file" id="restore-file" accept=".json" hidden></label>
+    </div>
+  </div>
+</section>
+</main>
+
+<div id="toast" class="toast hidden"></div>
+<script src="/app.js"></script>
+</body>
+</html>
