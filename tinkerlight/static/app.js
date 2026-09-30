@@ -574,7 +574,7 @@ function renderProfileTable() {
   for (const [a, spec] of Object.entries(p.attributes)) {
     t.append(el("tr", {},
       el("td", {}, el("input", { value: spec.label, title: a, onchange: e => { spec.label = e.target.value; renderProfileTable(); } })),
-      el("td", {}, el("input", { type: "number", min: 0, max: 255, class: "num", value: spec.default || 0,
+      el("td", {}, el("input", { type: "number", min: 0, max: 255, step: "any", class: "num", value: spec.default || 0,
         onchange: e => { spec.default = +e.target.value; renderProfileTable(); } })),
       el("td", {}, el("input", { type: "checkbox", checked: !!spec.snap,
         onchange: e => { spec.snap = e.target.checked; renderProfileTable(); } })),

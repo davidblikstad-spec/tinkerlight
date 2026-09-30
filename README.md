@@ -26,17 +26,15 @@ administration and programming.
 
 ## ⚠ Check the fixture profile first
 
-The MAC Ultra Performance manual was not available while this was written. The
-built-in profile (`tinkerlight/profiles/martin-mac-ultra-performance.json`) is a
-**best-effort draft**. It has the right footprints (Basic 48 ch / Extended 58 ch)
-and the right shutter/strobe ranges, but the other channel numbers need checking.
+The built-in profile (`tinkerlight/profiles/martin-mac-ultra-performance.json`) is
+transcribed from the DMX protocol tables in the *MAC Ultra Performance User Guide*
+rev. H (firmware 2.3.x). It covers Extended (58 ch), Basic (48 ch) and Compact (42 ch)
+modes, the named colour, gobo and prism slots, and reset/hibernation/fan commands.
+It has not been checked on a real fixture yet:
 
-1. Open the *DMX protocol* table in the MAC Ultra Performance User Guide.
-2. In **Admin → Fixture profile**, correct the channel / fine-channel numbers per mode.
-   Add colour-wheel, gobo and prism slots as `ranges` in the JSON editor.
-   Add control-channel commands (reset, etc.) to `commands` with their DMX value and
-   hold time. Then set `"verified": true`.
-3. Use **Admin → Channel test** to drive single channels on the real fixture and confirm them.
+1. Check the fixture's firmware (INFORMATION → FW VERSION). Other versions may lay channels out differently.
+2. Use **Admin → Channel test** to drive single channels on the real fixture and confirm them.
+3. Fix anything that differs in **Admin → Fixture profile**, then set `"verified": true`.
 
 Your edited profile is saved in the data directory, so updates do not overwrite it.
 **Revert to built-in** discards your edits.

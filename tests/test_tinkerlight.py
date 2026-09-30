@@ -166,6 +166,25 @@ class FixtureTests(unittest.TestCase):
         self.assertEqual(uni[101], 0x12)
         self.assertEqual(uni[102], 0x34)
 
+    def test_profile_matches_manual(self):
+        # Spot checks against Tables 2 and 3 of the MAC Ultra Performance User Guide rev. H.
+        p = fx.ProfileLibrary(tempfile.mkdtemp()).get(PID)
+        self.assertEqual(fx.footprint(p, "compact"), 42)
+        expect = {
+            "extended": {"cto": (10, 11), "gobo2_rot": (17, 18), "iris": (24, 25), "zoom": (26, 27),
+                         "blade1_in": (30, 31), "pan": (48, 49), "tilt": (50, 51), "control": (52, None),
+                         "fx_sync": (58, None)},
+            "basic": {"cto": (10, 11), "iris": (24, None), "zoom": (25, 26), "blade1_in": (29, None),
+                      "frame_rot": (37, None), "pan": (38, 39), "control": (42, None), "fx_sync": (48, None)},
+        }
+        for mode, chans in expect.items():
+            got = {c["attr"]: (c["ch"], c.get("fine")) for c in p["modes"][mode]["channels"]}
+            for attr, want in chans.items():
+                self.assertEqual(got[attr], want, "%s %s" % (mode, attr))
+        # 16-bit centre must be exactly 32768; 32896 already means CCW rotation on gobo channels.
+        self.assertEqual(fx.defaults(p)["gobo_rot"], 32768)
+        self.assertEqual(fx.defaults(p)["pan"], 32768)
+
     def test_validate_rejects_overlap(self):
         p = json.loads(json.dumps(fx.ProfileLibrary(tempfile.mkdtemp()).get(PID)))
         p["modes"]["basic"]["channels"][1]["ch"] = 1
@@ -214,10 +233,10 @@ class EngineTests(unittest.TestCase):
         store, lib, eng = make_env(clock)
         eng.run_command("f1", {"label": "Reset", "attr": "control", "value": 200, "hold": 3})
         eng.render()
-        self.assertEqual(eng.universe[50], 200)
+        self.assertEqual(eng.universe[51], 200)       # control is ch 52 in extended
         clock.t += 4
         eng.render()
-        self.assertEqual(eng.universe[50], 0)
+        self.assertEqual(eng.universe[51], 0)
 
     def test_test_channel_override(self):
         store, lib, eng = make_env()
