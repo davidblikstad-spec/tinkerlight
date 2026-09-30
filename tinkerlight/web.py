@@ -75,6 +75,7 @@ class App:
             ("GET", r"/api/state", self.get_state),
             ("GET", r"/api/show", self.get_show),
             ("GET", r"/api/camera\.jpg", self.get_camera),
+            ("GET", r"/api/cameras", self.get_cameras),
             ("GET", r"/api/profiles", self.get_profiles),
             ("PUT", r"/api/profiles/(?P<pid>[\w-]+)", self.put_profile),
             ("POST", r"/api/profiles/(?P<pid>[\w-]+)/revert", self.revert_profile),
@@ -135,6 +136,9 @@ class App:
             raise ApiError(503, str(e))
         return RawResponse(jpeg, "image/jpeg",
                            {"X-Taken": dt.datetime.fromtimestamp(taken).isoformat(timespec="seconds")})
+
+    def get_cameras(self, body):
+        return {"cameras": self.camera.devices() if self.camera else []}
 
     def get_show(self, body):
         d = self.store.export()

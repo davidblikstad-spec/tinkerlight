@@ -432,7 +432,8 @@ function renderAdmin() {
   $("#pw-form").user.value = show.user || "admin";
   const cam = show.settings.camera || {}, cf = $("#cam-form");
   cf.enabled.checked = !!cam.enabled;
-  for (const k of ["device", "width", "height", "interval"]) cf[k].value = cam[k] != null ? cam[k] : "";
+  for (const k of ["width", "height", "interval"]) cf[k].value = cam[k] != null ? cam[k] : "";
+  loadCameras(cam.device);
   renderPatch();
   const sel = $("#profile-select");
   const cur = sel.value;
@@ -464,6 +465,26 @@ $("#loc-form").addEventListener("submit", async e => {
     startup: f.startup.value, startup_preset: f.startup_preset.value || null,
   });
   toast("Saved"); loadShow(); poll();
+});
+// Fill the camera dropdown with what's plugged in; keep the saved device even if it's gone.
+async function loadCameras(current) {
+  const sel = $("#cam-form").device;
+  let want = current !== undefined ? current : sel.value;
+  let cams = [];
+  try { cams = (await api("GET", "/api/cameras")).cameras; } catch (err) { /* toast shown */ }
+  const same = cams.find(c => c.node === want);      // saved as /dev/videoN: show its stable name
+  if (same) want = same.device;
+  const opts = cams.map(c => el("option", { value: c.device, text: `${c.name} (${c.node})` }));
+  if (want && !cams.some(c => c.device === want))
+    opts.unshift(el("option", { value: want, text: `${want} (not connected)` }));
+  if (!opts.length) opts.push(el("option", { value: "", text: "No camera found - plug one in and press Rescan" }));
+  sel.replaceChildren(...opts);
+  if (want) sel.value = want;
+  return cams.length;
+}
+$("#btn-cam-scan").addEventListener("click", async () => {
+  const n = await loadCameras();
+  toast(n === 1 ? "1 camera found" : n + " cameras found");
 });
 $("#cam-form").addEventListener("submit", async e => {
   e.preventDefault();

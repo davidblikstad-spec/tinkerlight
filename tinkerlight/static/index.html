@@ -200,7 +200,8 @@
     <h3>Webcam</h3>
     <form id="cam-form" class="form">
       <label class="inline"><input type="checkbox" name="enabled"> Show webcam on the Live tab</label>
-      <label>Device <input name="device" placeholder="/dev/video0"></label>
+      <label>Camera <select name="device"></select></label>
+      <button type="button" id="btn-cam-scan">Rescan</button>
       <label>Width <input name="width" type="number" min="160" max="1920" class="num"></label>
       <label>Height <input name="height" type="number" min="120" max="1080" class="num"></label>
       <label>Refresh every (s) <input name="interval" type="number" min="1" max="3600" class="num"></label>

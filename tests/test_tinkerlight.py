@@ -1,6 +1,7 @@
 import base64
 import datetime as dt
 import json
+import os
 import socket
 import struct
 import tempfile
@@ -12,7 +13,9 @@ import urllib.request
 import sys
 
 from tinkerlight import fixtures as fx
-from tinkerlight.camera import Camera, CameraError
+from tinkerlight.camera import Camera, CameraError, is_camera, list_cameras
+
+CAP_CAPTURE, CAP_META, CAP_M2M_MP, CAP_M2M = 0x1, 0x00800000, 0x4000, 0x8000
 from tinkerlight.__main__ import seed
 from tinkerlight.engine import Engine
 from tinkerlight.outputs import artnet_packet, sacn_packet, ArtNetOutput
@@ -72,6 +75,55 @@ class CameraTests(unittest.TestCase):
         with self.assertRaises(CameraError):
             cam.snapshot()
         self.assertEqual(cam.error, "no such device")
+
+    def test_list_cameras_skips_codecs_and_prefers_by_id(self):
+        # Mirrors the Tinker Board: video0-3 are the SoC's codec nodes, video4/5 a USB webcam.
+        root = tempfile.mkdtemp()
+        sysd, devd = os.path.join(root, "sys"), os.path.join(root, "dev")
+        nodes = {"video0": ("rockchip-rga", 0, CAP_M2M), "video1": ("rk3288-vpu-enc", 0, CAP_M2M_MP),
+                 "video3": ("rkvdec", 0, CAP_M2M_MP), "video4": ("HD 720P Webcam", 0, CAP_CAPTURE),
+                 "video5": ("HD 720P Webcam", 1, CAP_META), "video10": ("Other cam", 0, CAP_CAPTURE)}
+        os.makedirs(os.path.join(devd, "v4l", "by-id"))
+        for n, (name, idx, _caps) in nodes.items():
+            os.makedirs(os.path.join(sysd, n))
+            with open(os.path.join(sysd, n, "name"), "w") as f:
+                f.write(name + "\n")
+            with open(os.path.join(sysd, n, "index"), "w") as f:
+                f.write("%d\n" % idx)
+            open(os.path.join(devd, n), "w").close()
+        link = os.path.join(devd, "v4l", "by-id", "usb-Sonix_USB_2.0_Camera-video-index0")
+        os.symlink(os.path.join(devd, "video4"), link)
+        caps = {os.path.join(devd, n): c for n, (_name, _idx, c) in nodes.items()}
+        cams = list_cameras(sysd, devd, query=caps.__getitem__)
+        self.assertEqual(cams, [
+            {"device": link, "name": "HD 720P Webcam", "node": os.path.join(devd, "video4")},
+            {"device": os.path.join(devd, "video10"), "name": "Other cam",
+             "node": os.path.join(devd, "video10")},
+        ])
+
+    def test_list_cameras_without_permission_falls_back_to_by_id(self):
+        root = tempfile.mkdtemp()
+        sysd, devd = os.path.join(root, "sys"), os.path.join(root, "dev")
+        os.makedirs(os.path.join(devd, "v4l", "by-id"))
+        for n, idx in (("video0", 0), ("video4", 0), ("video5", 1)):
+            os.makedirs(os.path.join(sysd, n))
+            with open(os.path.join(sysd, n, "index"), "w") as f:
+                f.write("%d\n" % idx)
+            open(os.path.join(devd, n), "w").close()
+        for n, idx in (("video4", 0), ("video5", 1)):
+            os.symlink(os.path.join(devd, n), os.path.join(devd, "v4l", "by-id", "cam-index%d" % idx))
+
+        def denied(node):
+            raise PermissionError(node)
+        cams = list_cameras(sysd, devd, query=denied)
+        self.assertEqual([c["node"] for c in cams], [os.path.join(devd, "video4")])
+        self.assertEqual(list_cameras(os.path.join(root, "missing"), devd), [])
+
+    def test_capability_filter(self):
+        self.assertTrue(is_camera(CAP_CAPTURE))
+        self.assertTrue(is_camera(0x1000))                      # multi-planar capture
+        self.assertFalse(is_camera(CAP_M2M | CAP_CAPTURE))      # codec that also "captures"
+        self.assertFalse(is_camera(CAP_META))
 
 
 class PacketTests(unittest.TestCase):
@@ -246,7 +298,9 @@ class WebTests(unittest.TestCase):
         store.data["settings"]["output"].update(type="none")
         cls.dev = tempfile.NamedTemporaryFile()        # stands in for /dev/video0
         store.data["settings"]["camera"].update(enabled=True, device=cls.dev.name)
-        cls.app = App(store, lib, eng, Scheduler(store, eng), Camera(store, command=fake_capture))
+        cams = [{"device": "/dev/v4l/by-id/usb-cam-video-index0", "name": "Webcam", "node": "/dev/video4"}]
+        cls.app = App(store, lib, eng, Scheduler(store, eng),
+                      Camera(store, command=fake_capture, lister=lambda: cams))
         cls.httpd = serve(cls.app, "127.0.0.1", 0)
         cls.port = cls.httpd.server_address[1]
         threading.Thread(target=cls.httpd.serve_forever, daemon=True).start()
@@ -320,6 +374,11 @@ class WebTests(unittest.TestCase):
         self.assertTrue(body.startswith(b"\xff\xd8"))
         code, _ = self.req("PUT", "/api/settings", {"camera": {"enabled": True, "device": "/etc/passwd"}})
         self.assertEqual(code, 400)
+
+    def test_camera_list_endpoint(self):
+        code, body = self.req("GET", "/api/cameras")
+        self.assertEqual(code, 200)
+        self.assertEqual(json.loads(body)["cameras"][0]["node"], "/dev/video4")
 
     def test_backup_roundtrip(self):
         code, body = self.req("GET", "/api/backup")
