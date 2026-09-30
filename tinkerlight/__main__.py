@@ -7,6 +7,7 @@ import os
 import signal
 import threading
 
+from .camera import Camera
 from .engine import Engine
 from .fixtures import ProfileLibrary, to16
 from .scheduler import Scheduler
@@ -78,7 +79,7 @@ def main(argv=None) -> None:
 
     engine.start()
     scheduler.start()
-    httpd = serve(App(store, library, engine, scheduler), args.host, args.port)
+    httpd = serve(App(store, library, engine, scheduler, Camera(store)), args.host, args.port)
     log.info("web UI on http://%s:%d  output: %s", args.host, args.port, engine.output.describe())
     if store.data["auth"].get("default"):
         log.warning("default login admin/admin is active - change it in Admin")

@@ -89,3 +89,5 @@ textarea#profile-json { width: 100%; min-height: 360px; font: 12px/1.4 ui-monosp
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--panel2);
   border: 1px solid var(--line); padding: 10px 18px; border-radius: 8px; z-index: 10; }
 .toast.err { border-color: var(--danger); color: #ffb4b6; }
+.cam img { display: block; width: 100%; max-width: 640px; border-radius: 8px; background: var(--bg); min-height: 120px; }
+.cam img.stale { opacity: .45; }

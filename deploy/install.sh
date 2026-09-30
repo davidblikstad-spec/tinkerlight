@@ -15,7 +15,11 @@ python3 -c 'import sys; sys.exit(sys.version_info < (3, 7))' || {
 }
 
 id tinkerlight >/dev/null 2>&1 || useradd --system --home /var/lib/tinkerlight --shell /usr/sbin/nologin tinkerlight
-usermod -aG dialout tinkerlight
+usermod -aG dialout,video tinkerlight
+
+# webcam snapshots (optional feature); don't fail the install when offline
+command -v fswebcam >/dev/null 2>&1 || apt-get install -y fswebcam || \
+    echo "note: could not install fswebcam - webcam snapshots will not work" >&2
 
 mkdir -p /opt/tinkerlight /var/lib/tinkerlight
 rm -rf /opt/tinkerlight/tinkerlight

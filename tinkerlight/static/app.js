@@ -430,6 +430,9 @@ function renderAdmin() {
     ...show.presets.map(p => el("option", { value: p.id, text: p.name })));
   lf.startup_preset.value = show.settings.startup_preset || "";
   $("#pw-form").user.value = show.user || "admin";
+  const cam = show.settings.camera || {}, cf = $("#cam-form");
+  cf.enabled.checked = !!cam.enabled;
+  for (const k of ["device", "width", "height", "interval"]) cf[k].value = cam[k] != null ? cam[k] : "";
   renderPatch();
   const sel = $("#profile-select");
   const cur = sel.value;
@@ -461,6 +464,14 @@ $("#loc-form").addEventListener("submit", async e => {
     startup: f.startup.value, startup_preset: f.startup_preset.value || null,
   });
   toast("Saved"); loadShow(); poll();
+});
+$("#cam-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const f = e.target;
+  await api("PUT", "/api/settings", { camera: {
+    enabled: f.enabled.checked, device: f.device.value.trim(),
+    width: +f.width.value, height: +f.height.value, interval: +f.interval.value } });
+  toast("Saved"); await loadShow(); poll(); refreshCamera();
 });
 $("#pw-form").addEventListener("submit", async e => {
   e.preventDefault();
@@ -592,6 +603,38 @@ $("#restore-file").addEventListener("change", async e => {
   toast("Restored"); loadShow();
 });
 
+// ---------------------------------------------------------------- camera ---
+let camBusy = false, camLast = 0, camUrl = null;
+async function refreshCamera() {
+  const cam = state && state.camera;
+  $("#cam-card").classList.toggle("hidden", !(cam && cam.enabled));
+  if (!cam || !cam.enabled || camBusy) return;
+  camBusy = true;
+  camLast = Date.now();
+  try {
+    const r = await fetch("/api/camera.jpg?t=" + camLast);
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || "HTTP " + r.status);
+    const url = URL.createObjectURL(await r.blob());
+    $("#cam-img").src = url;
+    if (camUrl) URL.revokeObjectURL(camUrl);
+    camUrl = url;
+    $("#cam-img").classList.remove("stale");
+    $("#cam-info").textContent = "Taken " + (r.headers.get("X-Taken") || "").replace("T", " ");
+  } catch (err) {
+    $("#cam-img").classList.add("stale");
+    $("#cam-info").textContent = "Camera: " + err.message;
+  } finally {
+    camBusy = false;
+  }
+}
+$("#btn-cam-refresh").addEventListener("click", refreshCamera);
+function cameraTick() {
+  const cam = state && state.camera;
+  const liveVisible = !$("#tab-live").classList.contains("hidden") && !document.hidden;
+  if (cam && cam.enabled && liveVisible && $("#cam-auto").checked &&
+      Date.now() - camLast >= (cam.interval || 5) * 1000) refreshCamera();
+}
+
 // ------------------------------------------------------------------ poll ---
 function renderMonitor() {
   let end = 32;
@@ -640,6 +683,8 @@ async function poll() {
   $("#history").replaceChildren(...state.log.map(u => el("li", {},
     el("time", { text: u.at.replace("T", " ").slice(5) }), `${u.source} - ${describeAction(u.action)}`)));
   syncFromState();
+  $("#cam-card").classList.toggle("hidden", !(state.camera && state.camera.enabled));
+  cameraTick();
   if (!$("#tab-admin").classList.contains("hidden")) renderMonitor();
 }
 

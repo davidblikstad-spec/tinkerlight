@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=simple
 User=tinkerlight
 Group=tinkerlight
-SupplementaryGroups=dialout
+SupplementaryGroups=dialout video
 WorkingDirectory=/opt/tinkerlight
 Environment=TINKERLIGHT_DATA=/var/lib/tinkerlight
 Environment=TINKERLIGHT_PORT=80

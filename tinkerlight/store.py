@@ -24,6 +24,8 @@ DEFAULT_SHOW = {
         "startup": "schedule",          # schedule | blackout | preset
         "startup_preset": None,
         "grand_master": 1.0,
+        "camera": {"enabled": False, "device": "/dev/video0",
+                   "width": 640, "height": 480, "interval": 5},
     },
     "auth": {},
     "fixtures": [

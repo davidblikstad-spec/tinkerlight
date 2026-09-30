@@ -133,6 +133,17 @@ Your show data in `/var/lib/tinkerlight` is kept.
 6. **Schedule:** add entries, e.g. "Warm white at sunset −15 min", "Off at 23:30".
 7. **Admin → Backup:** download a backup once everything works.
 
+## 9b. Optional: webcam
+
+Plug a USB webcam into the board. `install.sh` already installed `fswebcam`.
+Check that the camera is seen with `ls /dev/video*`. In **Admin → Webcam**, tick
+*Show webcam*, keep `/dev/video0` and save. The Live tab now shows a snapshot
+that refreshes every few seconds.
+
+If the picture fails, the Live tab shows the reason. Check it by hand:
+`fswebcam -d /dev/video0 test.jpg`. Some cameras create two devices; if so, try
+`/dev/video1`. Keep the resolution at 640×480 so the Tinker Board isn't loaded down.
+
 ## 10. Make it last
 
 - When everything works, take an image of the SD card, e.g. with Win32 Disk

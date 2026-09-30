@@ -18,6 +18,9 @@ administration and programming.
 - **Power-loss safe:** on boot it restores whatever the schedule says should be
   active at the current time. When NTP later corrects the clock (the Tinker Board
   has no RTC battery) it restores the state again instead of firing a burst of old events.
+- **Webcam (optional):** plug in any USB webcam to see a live snapshot of the rig
+  on the Live tab, which helps when you are working remotely over Tailscale. Frames are
+  only grabbed while someone is looking.
 - **Admin:** output settings, patch with overlap checks, fixture profile editor,
   raw channel test, DMX monitor, login, and backup/restore.
 

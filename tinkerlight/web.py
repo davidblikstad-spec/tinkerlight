@@ -16,11 +16,19 @@ import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import fixtures as fx
+from .camera import CameraError
 from .store import check_password, hash_password
 
 log = logging.getLogger(__name__)
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 MAX_BODY = 2 * 1024 * 1024
+
+
+class RawResponse:
+    """A non-JSON API result (e.g. a JPEG)."""
+
+    def __init__(self, body, ctype, headers=None):
+        self.body, self.ctype, self.headers = body, ctype, headers or {}
 
 
 class ApiError(Exception):
@@ -59,12 +67,14 @@ def validate_patch(fixtures, library):
 class App:
     """Route table + handlers, independent of the HTTP plumbing (testable)."""
 
-    def __init__(self, store, library, engine, scheduler):
+    def __init__(self, store, library, engine, scheduler, camera=None):
         self.store, self.library = store, library
         self.engine, self.scheduler = engine, scheduler
+        self.camera = camera
         self.routes = [
             ("GET", r"/api/state", self.get_state),
             ("GET", r"/api/show", self.get_show),
+            ("GET", r"/api/camera\.jpg", self.get_camera),
             ("GET", r"/api/profiles", self.get_profiles),
             ("PUT", r"/api/profiles/(?P<pid>[\w-]+)", self.put_profile),
             ("POST", r"/api/profiles/(?P<pid>[\w-]+)/revert", self.revert_profile),
@@ -113,7 +123,18 @@ class App:
             "sunrise": rise.strftime("%H:%M") if rise else None,
             "sunset": sset.strftime("%H:%M") if sset else None,
             "default_password": bool(self.store.data["auth"].get("default")),
+            "camera": self.camera.status() if self.camera else {"enabled": False},
         }
+
+    def get_camera(self, body):
+        if not self.camera:
+            raise ApiError(404, "no camera")
+        try:
+            jpeg, taken = self.camera.snapshot()
+        except CameraError as e:
+            raise ApiError(503, str(e))
+        return RawResponse(jpeg, "image/jpeg",
+                           {"X-Taken": dt.datetime.fromtimestamp(taken).isoformat(timespec="seconds")})
 
     def get_show(self, body):
         d = self.store.export()
@@ -320,6 +341,17 @@ class App:
             if "location" in body:
                 s["location"] = {"lat": float(body["location"]["lat"]),
                                  "lon": float(body["location"]["lon"])}
+            if "camera" in body:
+                cam = dict(s.get("camera", {}))
+                c = body["camera"]
+                cam.update({"enabled": bool(c.get("enabled")),
+                            "device": str(c.get("device") or "/dev/video0"),
+                            "width": max(160, min(1920, int(c.get("width", 640)))),
+                            "height": max(120, min(1080, int(c.get("height", 480)))),
+                            "interval": max(1, min(3600, int(c.get("interval", 5))))})
+                if not cam["device"].startswith("/dev/"):
+                    raise ApiError(400, "camera device must be under /dev/")
+                s["camera"] = cam
             if "startup" in body:
                 if body["startup"] not in ("schedule", "blackout", "preset"):
                     raise ApiError(400, "invalid startup mode")
@@ -429,6 +461,8 @@ def make_handler(app):
             except Exception:
                 log.exception("API error on %s %s", self.command, path)
                 return self._send(500, {"error": "internal error"})
+            if isinstance(result, RawResponse):
+                return self._send(200, result.body, result.ctype, result.headers)
             extra = None
             if path == "/api/backup":
                 name = "tinkerlight-%s.json" % dt.date.today().isoformat()

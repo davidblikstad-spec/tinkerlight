@@ -34,6 +34,18 @@
   </div>
   <p class="muted" id="last-action"></p>
 
+  <div class="card hidden" id="cam-card">
+    <h3>Camera</h3>
+    <div class="cam">
+      <img id="cam-img" alt="Webcam snapshot">
+      <p class="muted small" id="cam-info">Loading…</p>
+    </div>
+    <div class="bar">
+      <button id="btn-cam-refresh">Refresh now</button>
+      <label class="inline"><input type="checkbox" id="cam-auto" checked> Auto-refresh</label>
+    </div>
+  </div>
+
   <h2>Presets</h2>
   <div id="preset-grid" class="grid"></div>
 
@@ -182,6 +194,19 @@
         <p class="muted small">Scheduling uses the board's clock and time zone; make sure NTP is on (timedatectl).</p>
       </form>
     </div>
+  </div>
+
+  <div class="card">
+    <h3>Webcam</h3>
+    <form id="cam-form" class="form">
+      <label class="inline"><input type="checkbox" name="enabled"> Show webcam on the Live tab</label>
+      <label>Device <input name="device" placeholder="/dev/video0"></label>
+      <label>Width <input name="width" type="number" min="160" max="1920" class="num"></label>
+      <label>Height <input name="height" type="number" min="120" max="1080" class="num"></label>
+      <label>Refresh every (s) <input name="interval" type="number" min="1" max="3600" class="num"></label>
+      <button class="primary">Save</button>
+    </form>
+    <p class="muted small">Any USB (UVC) webcam. Pictures are only taken while someone has the Live tab open.</p>
   </div>
 
   <div class="card">

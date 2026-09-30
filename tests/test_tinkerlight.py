@@ -9,7 +9,10 @@ import unittest
 import urllib.error
 import urllib.request
 
+import sys
+
 from tinkerlight import fixtures as fx
+from tinkerlight.camera import Camera, CameraError
 from tinkerlight.__main__ import seed
 from tinkerlight.engine import Engine
 from tinkerlight.outputs import artnet_packet, sacn_packet, ArtNetOutput
@@ -35,6 +38,40 @@ def make_env(clock=None):
     lib = fx.ProfileLibrary(d + "/profiles")
     eng = Engine(store, lib, clock=clock or Clock())
     return store, lib, eng
+
+
+def fake_capture(cfg):
+    return [sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'\\xff\\xd8fakejpeg')"]
+
+
+class CameraTests(unittest.TestCase):
+    def cam(self, command=fake_capture, **cfg):
+        store = Store(tempfile.mkdtemp())
+        self.dev = tempfile.NamedTemporaryFile()
+        store.data["settings"]["camera"].update(dict({"enabled": True, "device": self.dev.name}, **cfg))
+        return Camera(store, command=command)
+
+    def test_snapshot_and_cache(self):
+        cam = self.cam()
+        jpeg, t1 = cam.snapshot()
+        self.assertTrue(jpeg.startswith(b"\xff\xd8"))
+        self.assertEqual(cam.snapshot()[1], t1)          # reused within MIN_AGE
+
+    def test_disabled_and_missing_device(self):
+        cam = self.cam(enabled=False)
+        with self.assertRaises(CameraError):
+            cam.snapshot()
+        cam = self.cam(device="/dev/does-not-exist")
+        with self.assertRaises(CameraError):
+            cam.snapshot()
+        self.assertIn("not found", cam.status()["error"])
+
+    def test_failed_capture_reports_stderr(self):
+        bad = lambda cfg: [sys.executable, "-c", "import sys; sys.stderr.write('no such device'); sys.exit(1)"]
+        cam = self.cam(command=bad)
+        with self.assertRaises(CameraError):
+            cam.snapshot()
+        self.assertEqual(cam.error, "no such device")
 
 
 class PacketTests(unittest.TestCase):
@@ -207,7 +244,9 @@ class WebTests(unittest.TestCase):
         store, lib, eng = make_env()
         cls.store, cls.eng = store, eng
         store.data["settings"]["output"].update(type="none")
-        cls.app = App(store, lib, eng, Scheduler(store, eng))
+        cls.dev = tempfile.NamedTemporaryFile()        # stands in for /dev/video0
+        store.data["settings"]["camera"].update(enabled=True, device=cls.dev.name)
+        cls.app = App(store, lib, eng, Scheduler(store, eng), Camera(store, command=fake_capture))
         cls.httpd = serve(cls.app, "127.0.0.1", 0)
         cls.port = cls.httpd.server_address[1]
         threading.Thread(target=cls.httpd.serve_forever, daemon=True).start()
@@ -274,6 +313,13 @@ class WebTests(unittest.TestCase):
         code, body = self.req("PUT", "/api/fixtures", {"fixtures": fixtures})
         self.assertEqual(code, 400)
         self.assertIn(b"overlaps", body)
+
+    def test_camera_endpoint(self):
+        code, body = self.req("GET", "/api/camera.jpg")
+        self.assertEqual(code, 200)
+        self.assertTrue(body.startswith(b"\xff\xd8"))
+        code, _ = self.req("PUT", "/api/settings", {"camera": {"enabled": True, "device": "/etc/passwd"}})
+        self.assertEqual(code, 400)
 
     def test_backup_roundtrip(self):
         code, body = self.req("GET", "/api/backup")
